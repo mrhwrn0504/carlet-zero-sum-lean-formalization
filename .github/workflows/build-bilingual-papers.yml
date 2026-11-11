@@ -46,7 +46,18 @@ jobs:
           git add paper/lean-formalization/main_zh.pdf paper/lean-formalization/main_en.pdf
           if ! git diff --cached --quiet; then
             git commit -m "Build updated Chinese and English papers"
-            git push
+            # The source import or README edits may land while LaTeX compiles.
+            # Rebase the PDF-only commit on the latest main before pushing.
+            for attempt in 1 2 3 4 5; do
+              git fetch origin main
+              git rebase origin/main
+              if git push origin HEAD:main; then
+                exit 0
+              fi
+              sleep 3
+            done
+            echo "Unable to push PDFs after five rebased attempts" >&2
+            exit 1
           fi
 
       - name: Upload downloadable paper files
