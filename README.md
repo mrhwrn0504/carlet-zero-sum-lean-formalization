@@ -6,16 +6,16 @@ This is the **separate open-source release** of the machine-checked Carlet zero-
 
 ## Statements / 定理
 
-For a characteristic-two finite field (K) of cardinality (2^n), the formalization constructs a (k)-dimensional (mathbb F_2)-linear subspace (Esubseteq K) with
+For a characteristic-two finite field $K$ of cardinality $2^n$, the formalization constructs a $k$-dimensional $\mathbb{F}_2$-linear subspace $E \subseteq K$ with
 
-[
-sum_{xin Esetminus{0}}x^{-1}=0
-]
+$$
+\sum_{x\in E\setminus\{0\}}x^{-1}=0.
+$$
 
-in the parity-sensitive ranges:
+The proved parameter ranges are:
 
-- Odd (n): (3le kle n-3).
-- Even (n): (2le kle n-2).
+- **Odd $n$:** $3\le k\le n-3$.
+- **Even $n$:** $2\le k\le n-2$.
 
 The principal definitions and theorems are in `formalization/Carlet/Statement.lean`, `MainTheorem.lean`, `EvenDegree.lean` and `FullTheorem.lean`.
 
