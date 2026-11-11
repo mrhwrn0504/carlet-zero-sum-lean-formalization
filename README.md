@@ -59,4 +59,4 @@ The V7 direct-elimination and trace-criterion modules are included, but general 
 
 Original Lean code: MIT (`LICENSE`). Manuscript materials: CC BY 4.0 (`paper/LICENSE.md`). Bundled AINTLIB material retains its own Apache-2.0 notices. See `CITATION.cff` for citation metadata.
 
-> The publication import will populate the source tree and papers. An empty project at this point does not yet constitute a published proof.
+> This source is imported from a pinned, already audited snapshot. The new repository's own CI runs provide the independent republication check.

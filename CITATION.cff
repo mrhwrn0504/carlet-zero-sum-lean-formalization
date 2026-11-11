@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: 'Please cite this formalization and the prior relevant mathematical literature.'
+title: 'Carlet Zero-Sum Subspaces: Lean 4 Formalization and Bilingual Manuscripts'
+type: software
+version: 1.0.0
+date-released: '2026-11-11'
+authors:
+  - family-names: Wang
+    given-names: Quanzhi
+repository-code: 'https://github.com/mrhwrn0504/carlet-zero-sum-lean-formalization'
