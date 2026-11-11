@@ -1,0 +1,166 @@
+name: Import verified formalization
+
+on:
+  push:
+    paths:
+      - '.github/workflows/import-verified-formalization.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the new independent repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Import the pinned verified proof and patch manuscripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_URL="https://github.com/mrhwrn0504/carlet-conjecture-proof-candidate.git"
+          PROOF_SHA="bd491a4a644f3f3da300658eb3da1cb6c7a6d62a"
+          SOURCE_DIR="$RUNNER_TEMP/carlet-verified-source"
+          git clone --quiet --depth 1 --single-branch --branch carlet-full-conjecture-integration "$SOURCE_URL" "$SOURCE_DIR"
+          cd "$SOURCE_DIR"
+          if [ "$(git rev-parse HEAD)" != "$PROOF_SHA" ]; then
+            git fetch --quiet --depth 1 origin "$PROOF_SHA"
+            git checkout --quiet --detach "$PROOF_SHA"
+          fi
+          test "$(git rev-parse HEAD)" = "$PROOF_SHA"
+          cd "$GITHUB_WORKSPACE"
+          
+          # Only carry over the formal proof, the manuscript and its licensing material.
+          cp -a "$SOURCE_DIR/formalization" ./formalization
+          mkdir -p ./paper/lean-formalization ./scripts
+          cp "$SOURCE_DIR/paper/lean-formalization/main_zh.tex" ./paper/lean-formalization/
+          cp "$SOURCE_DIR/paper/lean-formalization/main_en.tex" ./paper/lean-formalization/
+          cp "$SOURCE_DIR/paper/LICENSE.md" ./paper/LICENSE.md
+          cp "$SOURCE_DIR/LICENSE" ./LICENSE
+          cp "$SOURCE_DIR/scripts/verify_k4_small_witnesses.py" ./scripts/
+          cp "$SOURCE_DIR/scripts/audit_v7_trace_symmetry.py" ./scripts/
+          cp "$SOURCE_DIR/.gitignore" ./.gitignore
+          cat >> .gitignore <<'ENDIGNORE'
+          __pycache__/
+          *.pyc
+          formalization/build_receipt.json
+          formalization/verified_build_summary.json
+          formalization/final_theorem_audit.json
+          formalization/vendor/aintlib/olean/
+          ENDIGNORE
+          rm -f formalization/build_receipt.json formalization/verified_build_summary.json formalization/final_theorem_audit.json
+          rm -rf formalization/.lake formalization/vendor/aintlib/olean
+          find formalization -type f \( -name '*.olean' -o -name '*.ilean' -o -name '*.pyc' \) -delete
+          
+          python3 - <<'PY'
+          from pathlib import Path
+          
+          def patch_paper(path, lang):
+              p = Path(path)
+              s = p.read_text(encoding="utf-8")
+              assert r"\bibitem{Cheng2026}" not in s, path
+              anchor = r"\bibitem{Silverman}"
+              assert s.count(anchor) == 1, path
+              entry = (r"\bibitem{Cheng2026}" + "\n"
+                       r"K.~Cheng, \emph{Counting zero-sum subspaces for the multiplicative inverse function}, "
+                       r"arXiv:2610.06445 (2026), \url{https://arxiv.org/abs/2610.06445}." + "\n")
+              s = s.replace(anchor, entry + anchor, 1)
+          
+              if lang == "en":
+                  header = r"\section{Introduction and main theorem}"
+                  note = (r"\noindent\textbf{Relationship to earlier research.} "
+                          r"Cheng's October 2026 preprint~\cite{Cheng2026} already proves "
+                          r"Carlet's existence conjecture and obtains a quantitative counting theorem. "
+                          r"Our contribution is the explicitly documented Lean 4 formalization "
+                          r"and its machine-checked constructive components and axiom audits; "
+                          r"we do not claim the first proof of the existence conjecture.")
+                  old = "The 7 November 2026 acceptance record"
+                  assert old in s, path
+                  s = s.replace(old, "The 11 November 2026 acceptance record")
+                  assert "checked 270 modules" in s and "audited 923 declarations" in s
+                  s = s.replace("checked 270 modules", "checked 274 modules")
+                  s = s.replace("audited 923 declarations", "audited 942 declarations")
+              else:
+                  header = r"\section{引言与主定理}"
+                  note = (r"\noindent\textbf{与此前研究的关系。} "
+                          r"Cheng 于 2026 年 10 月的预印本~\cite{Cheng2026} 已证明 Carlet 的存在性猜想，"
+                          r"并给出定量计数定理。本文的贡献在于 Lean 4 形式化、显式构造及可审计的机器验证；"
+                          r"我们不主张对原存在性猜想的首次证明优先权。")
+                  old = "2026 年 11 月 7 日的验收"
+                  assert old in s, path
+                  s = s.replace(old, "2026 年 11 月 11 日的验收")
+                  assert "检查 270 个模块" in s and "审计 923 项声明" in s
+                  s = s.replace("检查 270 个模块", "检查 274 个模块")
+                  s = s.replace("审计 923 项声明", "审计 942 项声明")
+              assert s.count(header) == 1, path
+              s = s.replace(header, header + "\n\n" + note + "\n", 1)
+              p.write_text(s, encoding="utf-8")
+          
+          patch_paper("paper/lean-formalization/main_en.tex","en")
+          patch_paper("paper/lean-formalization/main_zh.tex","zh")
+          
+          Path("paper/README.md").write_text("""# Chinese and English mathematical manuscripts
+          
+          These sources accompany the Lean 4 formalization, not a priority claim for
+          Carlet's original existence theorem. The high-dimensional section describes
+          the formalized probability/energy-contraction argument rather than the separate
+          unfinished reciprocal-geometry/cohomology candidate.
+          
+          - main_zh.tex / main_en.tex: editable LaTeX source
+          - main_zh.pdf / main_en.pdf: PDF files produced by the bilingual Actions workflow
+          - LICENSE.md: Creative Commons Attribution 4.0 license
+          
+          The manuscripts cite Cheng's October 2026 work and contain the November 11
+          2026 successful audit counts (188 AINTLIB, 274 Carlet modules, 942 declarations).
+          """,encoding="utf-8")
+          Path("CITATION.cff").write_text("""cff-version: 1.2.0
+          message: 'Please cite this formalization and the prior relevant mathematical literature.'
+          title: 'Carlet Zero-Sum Subspaces: Lean 4 Formalization and Bilingual Manuscripts'
+          type: software
+          version: 1.0.0
+          date-released: '2026-11-11'
+          authors:
+            - family-names: Wang
+              given-names: Quanzhi
+          repository-code: 'https://github.com/mrhwrn0504/carlet-zero-sum-lean-formalization'
+          """,encoding="utf-8")
+          Path("RELEASE_CHECKLIST.md").write_text("""# Publication verification checklist
+          
+          - [ ] This repository's Lean 4 full-theorem workflow has passed on the imported commit.
+          - [ ] The bilingual manuscript workflow has regenerated both PDFs successfully.
+          - [ ] Both manuscripts cite Cheng (2026), arXiv:2610.06445, for prior proof priority.
+          - [ ] The final axiom audit only lists propext, Classical.choice and Quot.sound.
+          - [ ] All source / OLean SHA-256 hashes match, with no sorryAx.
+          - [ ] MIT, CC BY 4.0 and the AINTLIB Apache-2.0 notices are preserved.
+          - [ ] The author confirms all citation metadata before an archival DOI release.
+          
+          The original source repository is never modified by this import.
+          """,encoding="utf-8")
+          readme = Path("README.md")
+          s = readme.read_text(encoding="utf-8")
+          s = s.replace("> The publication import will populate the source tree and papers. An empty project at this point does not yet constitute a published proof.",
+                        "> This source is imported from a pinned, already audited snapshot. The new repository's own CI runs provide the independent republication check.")
+          readme.write_text(s,encoding="utf-8")
+          required = ["formalization/Carlet/Statement.lean","formalization/Carlet/MainTheorem.lean",
+                      "formalization/Carlet/FullTheorem.lean","formalization/Carlet/FinalTheoremAudit.lean",
+                      "formalization/verify_build.py","formalization/audit_final_theorem.py",
+                      "formalization/vendor/aintlib/rebuild.py","scripts/verify_k4_small_witnesses.py"]
+          for path in required:
+              assert Path(path).is_file(), "Missing required formalization source: " + path
+          assert not Path("formalization/verified_build_summary.json").exists()
+          print("Validated pinned source, proof modules, bilingual manuscripts and licenses")
+          PY
+      - name: Commit imported sources to the new repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && { echo "No new source to import"; exit 0; }
+          git commit -m "Publish pinned, audited Carlet Lean formalization and revised bilingual papers"
+          git push origin HEAD:main
